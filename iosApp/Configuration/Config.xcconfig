@@ -1,0 +1,7 @@
+TEAM_ID=
+
+PRODUCT_NAME=Homebox Speech Client
+PRODUCT_BUNDLE_IDENTIFIER=de.findusl.homebox.client.HomeboxSpeechClient$(TEAM_ID)
+
+CURRENT_PROJECT_VERSION=1
+MARKETING_VERSION=1.0
