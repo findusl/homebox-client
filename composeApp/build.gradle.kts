@@ -1,7 +1,9 @@
 
 import com.android.build.api.dsl.ApplicationExtension
 import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
+import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 
 plugins {
 	alias(libs.plugins.kotlinMultiplatform)
@@ -76,10 +78,13 @@ kotlin {
 			jvmTarget.set(JvmTarget.JVM_11)
 		}
 		val testCompilation = compilations["test"]
-		val uiTestCompilation =
-			compilations.create("uiTest") {
-				associateWith(testCompilation)
-			}
+		val uiTestCompilation: KotlinJvmCompilation =
+			compilations.create("uiTest",
+				// This anonymous function shuts up the weird warning here
+				fun KotlinJvmCompilation.() {
+					associateWith(testCompilation)
+				}
+			)
 		testRuns {
 			val uiTest by creating {
 				setExecutionSourceFrom(uiTestCompilation)
@@ -114,6 +119,7 @@ kotlin {
 			implementation(libs.koog)
 			implementation(libs.kotlinx.collections.immutable)
 			implementation(libs.kotlinx.datetime)
+			implementation(libs.ktor.client.cio)
 			implementation(libs.ktor.client.contentNegotiation)
 			implementation(libs.ktor.client.core)
 			implementation(libs.ktor.serialization.kotlinxJson)
@@ -134,9 +140,9 @@ kotlin {
 		val jvmUiTest by getting {
 			dependencies {
 				implementation(libs.junit)
-				@OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+				@OptIn(ExperimentalComposeLibrary::class)
 				implementation(compose.uiTest)
-				@OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+				@OptIn(ExperimentalComposeLibrary::class)
 				implementation(compose.desktop.uiTestJUnit4)
 				implementation(compose.components.uiToolingPreview)
 				implementation(libs.multiplatform.settings.test)
@@ -162,13 +168,13 @@ compose.desktop {
 	}
 }
 
-val openaiApiKey = System.getenv("PRIVATE_OPENAI_API_KEY")
-
 buildkonfig {
 	packageName = "de.findusl.homebox.client"
 
 	defaultConfigs {
-		buildConfigField(STRING, "OPENAI_API_KEY", openaiApiKey)
+		buildConfigField(STRING, "OPENAI_API_KEY", System.getenv("PRIVATE_OPENAI_API_KEY"))
+		buildConfigField(STRING, "HOMEBOX_BASE_URL", System.getenv("HOMEBOX_BASE_URL"))
+		buildConfigField(STRING, "HOMEBOX_API_TOKEN", System.getenv("HOMEBOX_API_TOKEN"))
 		// TODO path for homebox
 	}
 }

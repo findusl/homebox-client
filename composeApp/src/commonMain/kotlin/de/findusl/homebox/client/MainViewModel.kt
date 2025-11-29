@@ -21,6 +21,8 @@ class MainViewModel(
 	var errorMessage by mutableStateOf<String?>(null)
 		private set
 
+	val homeboxAiAgent = HomeboxAiAgent()
+
 	fun onRecordButtonClick() {
 		if (!isRecording) {
 			startRecording()
@@ -48,7 +50,7 @@ class MainViewModel(
 			val stopResult = recorder.stopRecording()
 			transcription =
 				stopResult
-					.mapCatching { buffer -> transcribeAudio(buffer, "The audio might contain words like koog, ktlint") }
+					.mapCatching { buffer -> homeboxAiAgent.executeUserCommand(buffer) }
 					.getOrElse { throwable ->
 						Napier.e("Failed to finish recording", throwable)
 						errorMessage = throwable.message ?: "Failed to stop recording"

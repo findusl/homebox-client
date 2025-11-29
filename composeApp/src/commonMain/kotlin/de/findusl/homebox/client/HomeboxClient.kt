@@ -40,7 +40,7 @@ class HomeboxClient(
 	}
 
 	suspend fun listLocations(filterChildren: Boolean? = null): List<Location> {
-		val response = httpClient.get("$baseUrl/v1/locations") {
+		val response = httpClient.get("$baseUrl/api/v1/locations") {
 			filterChildren?.let { parameter("filterChildren", it) }
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.Authorization, "Bearer $apiToken")
@@ -51,7 +51,7 @@ class HomeboxClient(
 	}
 
 	suspend fun getLocationTree(withItems: Boolean = false): List<TreeItem> {
-		val response = httpClient.get("$baseUrl/v1/locations/tree") {
+		val response = httpClient.get("$baseUrl/api/v1/locations/tree") {
 			if (withItems) {
 				parameter("withItems", true)
 			}
@@ -69,7 +69,7 @@ class HomeboxClient(
 		description: String? = null,
 	): LocationSummary {
 		require(name.isNotBlank()) { "Location name must not be blank" }
-		val response = httpClient.post("$baseUrl/v1/locations") {
+		val response = httpClient.post("$baseUrl/api/v1/locations") {
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.ContentType, ContentType.Application.Json)
 			header(HttpHeaders.Authorization, "Bearer $apiToken")
@@ -90,7 +90,7 @@ class HomeboxClient(
 		locationIds: List<Uuid>? = null,
 		pageSize: Int = 100,
 	): ItemPage {
-		val response = httpClient.get("$baseUrl/v1/items") {
+		val response = httpClient.get("$baseUrl/api/v1/items") {
 			parameter("pageSize", pageSize)
 			query?.takeIf { it.isNotBlank() }?.let { parameter("q", it) }
 			locationIds?.forEach { parameter("locations", it.toString()) }
@@ -109,7 +109,7 @@ class HomeboxClient(
 	): ItemSummary {
 		require(name.isNotBlank()) { "Item name must not be blank" }
 
-		val response = httpClient.post("$baseUrl/v1/items") {
+		val response = httpClient.post("$baseUrl/api/v1/items") {
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.ContentType, ContentType.Application.Json)
 			header(HttpHeaders.Authorization, "Bearer $apiToken")
@@ -127,7 +127,7 @@ class HomeboxClient(
 	}
 
 	suspend fun updateItemQuantity(id: Uuid, quantity: Int) {
-		httpClient.patch("$baseUrl/v1/items/$id") {
+		httpClient.patch("$baseUrl/api/v1/items/$id") {
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.ContentType, ContentType.Application.Json)
 			header(HttpHeaders.Authorization, "Bearer $apiToken")
@@ -136,7 +136,7 @@ class HomeboxClient(
 	}
 
 	suspend fun getLocation(id: Uuid): LocationDetails {
-		val response = httpClient.get("$baseUrl/v1/locations/$id") {
+		val response = httpClient.get("$baseUrl/api/v1/locations/$id") {
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.Authorization, "Bearer $apiToken")
 		}
