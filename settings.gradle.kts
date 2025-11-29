@@ -1,31 +1,33 @@
+@file:Suppress("UnstableApiUsage") // from the generator
+
 rootProject.name = "HomeboxSpeechClient"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
-    repositories {
-        google {
-            mavenContent {
-                includeGroupAndSubgroups("androidx")
-                includeGroupAndSubgroups("com.android")
-                includeGroupAndSubgroups("com.google")
-            }
-        }
-        mavenCentral()
-        gradlePluginPortal()
-    }
+	repositories {
+		google {
+			mavenContent {
+				includeGroupAndSubgroups("androidx")
+				includeGroupAndSubgroups("com.android")
+				includeGroupAndSubgroups("com.google")
+			}
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
 }
 
 dependencyResolutionManagement {
-    repositories {
-        google {
-            mavenContent {
-                includeGroupAndSubgroups("androidx")
-                includeGroupAndSubgroups("com.android")
-                includeGroupAndSubgroups("com.google")
-            }
-        }
-        mavenCentral()
-    }
+	repositories {
+		google {
+			mavenContent {
+				includeGroupAndSubgroups("androidx")
+				includeGroupAndSubgroups("com.android")
+				includeGroupAndSubgroups("com.google")
+			}
+		}
+		mavenCentral()
+	}
 }
 
 include(":composeApp")

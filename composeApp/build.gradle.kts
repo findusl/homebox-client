@@ -1,6 +1,6 @@
+
 import com.android.build.api.dsl.ApplicationExtension
-import org.gradle.api.JavaVersion
-import org.gradle.kotlin.dsl.configure
+import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -111,6 +111,7 @@ kotlin {
 			implementation(compose.runtime)
 			implementation(compose.ui)
 			implementation(libs.compose.material3)
+			implementation(libs.koog)
 			implementation(libs.kotlinx.collections.immutable)
 			implementation(libs.kotlinx.datetime)
 			implementation(libs.ktor.client.contentNegotiation)
@@ -119,6 +120,7 @@ kotlin {
 			implementation(libs.multiplatform.settings)
 			implementation(libs.multiplatform.settings.noarg)
 			implementation(libs.napier)
+			implementation(libs.wav.recorder)
 		}
 		jvmMain.dependencies {
 			implementation(compose.desktop.currentOs)
@@ -160,10 +162,13 @@ compose.desktop {
 	}
 }
 
+val openaiApiKey = System.getenv("PRIVATE_OPENAI_API_KEY")
+
 buildkonfig {
 	packageName = "de.findusl.homebox.client"
 
 	defaultConfigs {
+		buildConfigField(STRING, "OPENAI_API_KEY", openaiApiKey)
 		// TODO path for homebox
 	}
 }

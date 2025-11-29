@@ -1,6 +1,5 @@
 package de.findusl.homebox.client
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,36 +9,77 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import de.findusl.wavrecorder.Recorder
+import de.findusl.wavrecorder.platformRecorder
 
 @Composable
 fun App() {
+	setupWavRecorderLogging()
+	val recorder: Recorder = remember { platformRecorder }
+	val coroutineScope = rememberCoroutineScope()
+	val viewModel = remember { MainViewModel(recorder, coroutineScope) }
+
+	DisposableEffect(recorder) {
+		onDispose { recorder.close() }
+	}
+
 	MaterialTheme {
-		var showContent by remember { mutableStateOf(false) }
+		MainScreen(viewModel = viewModel)
+	}
+}
+
+@Composable
+fun MainScreen(
+	viewModel: MainViewModel,
+) {
+	val isRecording = viewModel.isRecording
+	val isTranscribing = viewModel.isTranscribing
+	val transcription = viewModel.transcription
+	val errorMessage = viewModel.errorMessage
+
+	Column(
+		modifier =
+			Modifier
+				.background(MaterialTheme.colorScheme.primaryContainer)
+				.safeContentPadding()
+				.fillMaxSize(),
+		horizontalAlignment = Alignment.CenterHorizontally,
+	) {
+		val buttonLabel =
+			when {
+				isRecording -> "Stop recording"
+				isTranscribing -> "Transcribing..."
+				else -> "Start recording"
+			}
+
+		Button(
+			onClick = viewModel::onRecordButtonClick,
+			enabled = isRecording || !isTranscribing,
+		) {
+			Text(buttonLabel)
+		}
+
+		if (isRecording) {
+			Text("Recording...")
+		}
+
 		Column(
-			modifier =
-				Modifier
-					.background(MaterialTheme.colorScheme.primaryContainer)
-					.safeContentPadding()
-					.fillMaxSize(),
+			modifier = Modifier.fillMaxWidth(),
 			horizontalAlignment = Alignment.CenterHorizontally,
 		) {
-			Button(onClick = { showContent = !showContent }) {
-				Text("Click me!")
+			transcription?.let {
+				Text("Transcription")
+				Text(it)
 			}
-			AnimatedVisibility(showContent) {
-				val greeting = remember { Greeting().greet() }
-				Column(
-					modifier = Modifier.fillMaxWidth(),
-					horizontalAlignment = Alignment.CenterHorizontally,
-				) {
-					Text("Compose: $greeting")
-				}
+
+			errorMessage?.let {
+				Text("Error")
+				Text(it)
 			}
 		}
 	}
