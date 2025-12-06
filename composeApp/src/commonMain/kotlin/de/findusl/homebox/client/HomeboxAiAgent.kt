@@ -27,14 +27,14 @@ class HomeboxAiAgent {
 
 	suspend fun executeUserCommand(commandRecording: Buffer): String {
 		val locationTree = currentLocation.value?.let { homeboxClient.getTreeAtLocation(it) } ?: homeboxClient.getLocationTree()
-		
+
 		val locationList = locationTree.flatMap { it.flatten() }
 		val locationsAsName = locationList.joinToString(", ") { it.name }
 		val prompt = "Possible locations included in the audio are: $locationsAsName"
 
 		val command = transcribeAudio(commandRecording, prompt)
 
-		val toolWrapper = AiTools(locationTree, locationList, currentLocation)
+		val toolWrapper = AiTools(locationTree, locationList, currentLocation, homeboxClient)
 		val toolRegistry = ToolRegistry {
 			tool(toolWrapper.setCurrentLocationTool)
 		}

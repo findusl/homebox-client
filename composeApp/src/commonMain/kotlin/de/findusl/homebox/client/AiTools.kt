@@ -2,20 +2,28 @@ package de.findusl.homebox.client
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.Tool
+import ai.koog.agents.core.tools.annotations.LLMDescription
 import io.github.aakira.napier.Napier
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 
 @OptIn(ExperimentalUuidApi::class)
-class AiTools(val locationTree: List<TreeItem>, val locationsAsList: List<TreeItem>, currentLocation: MutableStateFlow<Uuid?>) {
+class AiTools(
+	val locationTree: List<TreeItem>,
+	val locationsAsList: List<TreeItem>,
+	val currentLocation: MutableStateFlow<Uuid?>,
+	val homeboxClient: HomeboxClient,
+) {
 
 	val setCurrentLocationTool: Tool<String, String> = object : SimpleTool<String>() {
 		override suspend fun doExecute(args: String): String {
 			val location = resolveLocation(args) ?: return "Could not find location $args"
 			currentLocation.value = location
-			return "Current location set to $args which is ID $location"
+			Napier.i("Set current location to $location based on $args")
+			return "Current location set to $args"
 		}
 
 		override val argsSerializer = String.serializer()
@@ -23,6 +31,20 @@ class AiTools(val locationTree: List<TreeItem>, val locationsAsList: List<TreeIt
 			"Parameter is the location as slash separated path from the root 'Home/Basement/First Rack' or if the name is unique, just the location name." +
 			"Will be matched case insensitive and whitespace will be ignored."
 		override val name = "setCurrentLocation"
+	}
+
+	val createLocationTool: Tool<CreateLocationArgs, String> = object : SimpleTool<CreateLocationArgs>() {
+		override suspend fun doExecute(args: CreateLocationArgs): String {
+			if (args.newLocationName.contains('/')) return "New location name must not contain slashes"
+			val location = resolveLocation(args.parent) ?: return "Could not find location $args"
+			val result = homeboxClient.createLocation(args.newLocationName, location, args.description)
+			Napier.i("Created location $result below $location (${args.parent}")
+			return "Location ${args.newLocationName} created below $location"
+		}
+
+		override val argsSerializer = CreateLocationArgs.serializer()
+		override val description = "Create a new location below the provided parent location."
+		override val name = "createLocation"
 	}
 
 	/**
@@ -63,3 +85,13 @@ class AiTools(val locationTree: List<TreeItem>, val locationsAsList: List<TreeIt
 	private val TreeItem.nameNormalized
 		get() = name.filter(Char::isWhitespace).lowercase()
 }
+
+@Serializable
+data class CreateLocationArgs(
+	@property:LLMDescription("The parent location of the new location. Same format as for setCurrentLocation.")
+	val parent: String,
+	@property:LLMDescription("The name of the new location.")
+	val newLocationName: String,
+	@property:LLMDescription("Optional description of the new location.")
+	val description: String? = null
+)
