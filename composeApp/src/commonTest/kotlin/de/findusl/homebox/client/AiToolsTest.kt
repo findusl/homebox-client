@@ -10,7 +10,7 @@ class AiToolsTest {
 
 	@Test
 	fun foo() {
-		val test = AiTools(listOf(), listOf(), MutableStateFlow(null), HomeboxClient(HttpClient(), "http://localhost:8080", "token"))
+		val test = AiTools(MutableStateFlow(null), HomeboxClient(HttpClient(), "http://localhost:8080", "token"), MutableStateFlow(kotlinx.collections.immutable.persistentListOf()))
 		println(test.createLocationTool.descriptor)
 	}
 }

@@ -3,7 +3,10 @@
 
 package de.findusl.homebox.client
 
+import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.accept
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -11,56 +14,98 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.content.TextContent
+import io.ktor.http.encodeURLParameter
+import io.ktor.http.isSuccess
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.json.Json
 
 @OptIn(ExperimentalUuidApi::class)
 class HomeboxClient(
 	private val httpClient: HttpClient,
 	private val baseUrl: String,
-	private val apiToken: String,
+	private val username: String,
+	private val password: String,
 ) {
+	private var apiToken: String? = null
+	
 	init {
 		require(baseUrl.isNotBlank()) { "Homebox base URL must not be blank" }
-		require(apiToken.isNotBlank()) { "Homebox API token must not be blank" }
+		require(username.isNotBlank()) { "Homebox username must not be blank" }
+		require(password.isNotBlank()) { "Homebox password must not be blank" }
 	}
 
+	private suspend fun HttpRequestBuilder.addAuthHeader() {
+		header(HttpHeaders.Authorization, apiToken ?: login())
+	}
+
+	private suspend fun login(): String {
+		// Manually encode form data to avoid charset in Content-Type
+		val formData = "username=${username.encodeURLParameter()}&password=${password.encodeURLParameter()}"
+		
+		val response = httpClient.post("$baseUrl/api/v1/users/login") {
+			header(HttpHeaders.Accept, ContentType.Application.Json)
+			setBody(TextContent(formData, ContentType.parse("application/x-www-form-urlencoded")))
+		}
+
+		val loginResponse = handleErrors(response) {
+			response.body<LoginResponse>()
+		}
+		apiToken = loginResponse.token
+		return loginResponse.token
+	}
+
+	private inline fun <R> handleErrors(response: HttpResponse, block: () -> R): R {
+		if (!response.status.isSuccess()) {
+			Napier.e("Error while executing request: ${response.status.value} ${response.status.description}")
+		}
+		try {
+			return block()
+		} catch (e: Exception) {
+			Napier.e("Error while processing response: $response", e)
+			throw e
+		}
+	}
+	
 	suspend fun listLocations(filterChildren: Boolean? = null): List<Location> {
 		val response = httpClient.get("$baseUrl/api/v1/locations") {
 			filterChildren?.let { parameter("filterChildren", it) }
 			accept(ContentType.Application.Json)
-			header(HttpHeaders.Authorization, "Bearer $apiToken")
+			addAuthHeader()
 		}
 
-		val payload = response.bodyAsText()
-		return Json.decodeFromString(LocationsSerializer, payload)
+		return handleErrors(response) {
+			response.body()
+		}
 	}
 
-	suspend fun getLocationTree(withItems: Boolean = false): List<TreeItem> {
+	suspend fun getLocationTree(atLocation: Uuid? = null, withItems: Boolean = false): List<TreeItem> {
 		val response = httpClient.get("$baseUrl/api/v1/locations/tree") {
 			if (withItems) {
 				parameter("withItems", true)
 			}
 			accept(ContentType.Application.Json)
-			header(HttpHeaders.Authorization, "Bearer $apiToken")
+			addAuthHeader()
 		}
 
-		val payload = response.bodyAsText()
-		return Json.decodeFromString(LocationTreeSerializer, payload)
+		val locationTree = response.body<List<TreeItem>>()
+		if (atLocation != null) {
+			return locationTree.flatMap { it.flatten() }.filter { it.id == atLocation }
+		} else {
+			return locationTree
+		}
 	}
 
 	suspend fun createLocation(
@@ -72,7 +117,7 @@ class HomeboxClient(
 		val response = httpClient.post("$baseUrl/api/v1/locations") {
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.ContentType, ContentType.Application.Json)
-			header(HttpHeaders.Authorization, "Bearer $apiToken")
+			addAuthHeader()
 			setBody(
 				LocationCreateRequest(
 					name = name,
@@ -82,7 +127,7 @@ class HomeboxClient(
 			)
 		}
 
-		return Json.decodeFromString<LocationSummary>(response.bodyAsText())
+		return response.body()
 	}
 
 	suspend fun listItems(
@@ -95,11 +140,10 @@ class HomeboxClient(
 			query?.takeIf { it.isNotBlank() }?.let { parameter("q", it) }
 			locationIds?.forEach { parameter("locations", it.toString()) }
 			accept(ContentType.Application.Json)
-			header(HttpHeaders.Authorization, "Bearer $apiToken")
+			addAuthHeader()
 		}
 
-		val payload = response.bodyAsText()
-		return Json.decodeFromString(ItemPage.serializer(), payload)
+		return response.body()
 	}
 
 	suspend fun createItem(
@@ -112,7 +156,7 @@ class HomeboxClient(
 		val response = httpClient.post("$baseUrl/api/v1/items") {
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.ContentType, ContentType.Application.Json)
-			header(HttpHeaders.Authorization, "Bearer $apiToken")
+			addAuthHeader()
 			setBody(
 				ItemCreateRequest(
 					name = name,
@@ -122,15 +166,14 @@ class HomeboxClient(
 			)
 		}
 
-		val payload = response.bodyAsText()
-		return Json.decodeFromString(ItemSummary.serializer(), payload)
+		return response.body()
 	}
 
 	suspend fun updateItemQuantity(id: Uuid, quantity: Int) {
 		httpClient.patch("$baseUrl/api/v1/items/$id") {
 			accept(ContentType.Application.Json)
 			header(HttpHeaders.ContentType, ContentType.Application.Json)
-			header(HttpHeaders.Authorization, "Bearer $apiToken")
+			addAuthHeader()
 			setBody(ItemPatchRequest(quantity = quantity))
 		}
 	}
@@ -138,16 +181,10 @@ class HomeboxClient(
 	suspend fun getLocation(id: Uuid): LocationDetails {
 		val response = httpClient.get("$baseUrl/api/v1/locations/$id") {
 			accept(ContentType.Application.Json)
-			header(HttpHeaders.Authorization, "Bearer $apiToken")
+			addAuthHeader()
 		}
 
-		val payload = response.bodyAsText()
-		return Json.decodeFromString(LocationDetails.serializer(), payload)
-	}
-
-	private companion object {
-		val LocationsSerializer = ListSerializer(Location.serializer())
-		val LocationTreeSerializer = ListSerializer(TreeItem.serializer())
+		return response.body()
 	}
 }
 
@@ -225,6 +262,13 @@ data class LocationDetails(
 	val name: String,
 	val description: String? = null,
 	val parent: LocationSummary? = null,
+)
+
+@Serializable
+private data class LoginResponse(
+	val token: String,
+	val expiresAt: String,
+	val attachmentToken: String,
 )
 
 @OptIn(ExperimentalUuidApi::class)

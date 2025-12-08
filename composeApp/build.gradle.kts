@@ -146,6 +146,7 @@ kotlin {
 				implementation(compose.desktop.uiTestJUnit4)
 				implementation(compose.components.uiToolingPreview)
 				implementation(libs.multiplatform.settings.test)
+				implementation(libs.mockk)
 			}
 		}
 		iosArm64Main.dependencies {
@@ -174,7 +175,7 @@ buildkonfig {
 	defaultConfigs {
 		buildConfigField(STRING, "OPENAI_API_KEY", System.getenv("PRIVATE_OPENAI_API_KEY"))
 		buildConfigField(STRING, "HOMEBOX_BASE_URL", System.getenv("HOMEBOX_BASE_URL"))
-		buildConfigField(STRING, "HOMEBOX_API_TOKEN", System.getenv("HOMEBOX_API_TOKEN"))
-		// TODO path for homebox
+		buildConfigField(STRING, "HOMEBOX_USERNAME", System.getenv("HOMEBOX_USERNAME"))
+		buildConfigField(STRING, "HOMEBOX_PASSWORD", System.getenv("HOMEBOX_PASSWORD"))
 	}
 }

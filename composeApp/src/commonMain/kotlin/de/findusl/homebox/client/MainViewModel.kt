@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 class MainViewModel(
 	private val recorder: Recorder,
 	private val coroutineScope: CoroutineScope,
+	val homeboxAiAgent: HomeboxAiAgent = HomeboxAiAgent()
 ) {
 	var isRecording by mutableStateOf(false)
 		private set
@@ -20,8 +21,6 @@ class MainViewModel(
 		private set
 	var errorMessage by mutableStateOf<String?>(null)
 		private set
-
-	val homeboxAiAgent = HomeboxAiAgent()
 
 	fun onRecordButtonClick() {
 		if (!isRecording) {
