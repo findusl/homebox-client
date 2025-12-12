@@ -12,6 +12,24 @@ plugins {
 	alias(libs.plugins.serialization)
 	alias(libs.plugins.buildKonfig)
 	alias(libs.plugins.androidApplication) apply false
+	id("dev.mokkery") version "3.0.0"
+}
+
+fun envOrEmptyForTests(name: String): String {
+	val configured = System.getenv(name)
+	if (!configured.isNullOrEmpty()) {
+		return configured
+	}
+	val requestedTasks = gradle.startParameter.taskNames
+	val runningTests =
+		requestedTasks.any { task ->
+			val simple = task.substringAfterLast(":")
+			simple.contains("test", ignoreCase = true) || simple.equals("check", ignoreCase = true)
+		}
+	if (runningTests) {
+		return ""
+	}
+	error("Environment variable $name must be set")
 }
 
 val androidEnabled =
@@ -79,11 +97,12 @@ kotlin {
 		}
 		val testCompilation = compilations["test"]
 		val uiTestCompilation: KotlinJvmCompilation =
-			compilations.create("uiTest",
+			compilations.create(
+				"uiTest",
 				// This anonymous function shuts up the weird warning here
 				fun KotlinJvmCompilation.() {
 					associateWith(testCompilation)
-				}
+				},
 			)
 		testRuns {
 			val uiTest by creating {
@@ -103,6 +122,9 @@ kotlin {
 	}
 
 	sourceSets {
+		all {
+			languageSettings.optIn("kotlin.uuid.ExperimentalUuidApi")
+		}
 		if (androidEnabled.get()) {
 			val androidMain by getting
 			androidMain.dependencies {
@@ -128,6 +150,8 @@ kotlin {
 			implementation(libs.napier)
 			implementation(libs.wav.recorder)
 		}
+		commonTest.dependencies {
+		}
 		jvmMain.dependencies {
 			implementation(compose.desktop.currentOs)
 			implementation(libs.ktor.client.cio)
@@ -146,7 +170,6 @@ kotlin {
 				implementation(compose.desktop.uiTestJUnit4)
 				implementation(compose.components.uiToolingPreview)
 				implementation(libs.multiplatform.settings.test)
-				implementation(libs.mockk)
 			}
 		}
 		iosArm64Main.dependencies {
@@ -173,9 +196,9 @@ buildkonfig {
 	packageName = "de.findusl.homebox.client"
 
 	defaultConfigs {
-		buildConfigField(STRING, "OPENAI_API_KEY", System.getenv("PRIVATE_OPENAI_API_KEY"))
-		buildConfigField(STRING, "HOMEBOX_BASE_URL", System.getenv("HOMEBOX_BASE_URL"))
-		buildConfigField(STRING, "HOMEBOX_USERNAME", System.getenv("HOMEBOX_USERNAME"))
-		buildConfigField(STRING, "HOMEBOX_PASSWORD", System.getenv("HOMEBOX_PASSWORD"))
+		buildConfigField(STRING, "OPENAI_API_KEY", envOrEmptyForTests("PRIVATE_OPENAI_API_KEY"))
+		buildConfigField(STRING, "HOMEBOX_BASE_URL", envOrEmptyForTests("HOMEBOX_BASE_URL"))
+		buildConfigField(STRING, "HOMEBOX_USERNAME", envOrEmptyForTests("HOMEBOX_USERNAME"))
+		buildConfigField(STRING, "HOMEBOX_PASSWORD", envOrEmptyForTests("HOMEBOX_PASSWORD"))
 	}
 }

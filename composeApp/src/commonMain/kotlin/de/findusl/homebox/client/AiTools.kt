@@ -4,20 +4,17 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import io.github.aakira.napier.Napier
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 
-@OptIn(ExperimentalUuidApi::class)
 class AiTools(
 	val currentLocation: MutableStateFlow<Uuid?>,
 	val homeboxClient: HomeboxClient,
 	private val events: MutableStateFlow<PersistentList<Event>>,
 ) {
-
 	val setCurrentLocationTool: Tool<String, String> = object : SimpleTool<String>() {
 		override suspend fun doExecute(args: String): String {
 			Napier.i("Got tool call to set current location to $args")
@@ -54,7 +51,9 @@ class AiTools(
 
 	val createItemTool: Tool<CreateItemArgs, String> = object : SimpleTool<CreateItemArgs>() {
 		override suspend fun doExecute(args: CreateItemArgs): String {
-			Napier.i("Got tool call to create item ${args.name} below ${args.parentLocation} with description ${args.description ?: "none"} and quantity ${args.quantity}")
+			Napier.i(
+				"Got tool call to create item ${args.name} below ${args.parentLocation} with description ${args.description ?: "none"} and quantity ${args.quantity}",
+			)
 			val location = resolveLocation(args.parentLocation) ?: return "Could not find location $args"
 			val result = homeboxClient.createItem(args.name, location, args.description)
 			Napier.i("Created item $result below $location (${args.parentLocation}")
@@ -129,7 +128,7 @@ data class CreateLocationArgs(
 	@property:LLMDescription("The name of the new location.")
 	val name: String,
 	@property:LLMDescription("Optional description of the new location.")
-	val description: String? = null
+	val description: String? = null,
 )
 
 @Serializable

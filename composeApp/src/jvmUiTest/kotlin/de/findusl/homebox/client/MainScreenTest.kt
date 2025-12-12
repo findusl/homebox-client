@@ -6,21 +6,21 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import de.findusl.wavrecorder.Recorder
-import io.mockk.every
-import io.mockk.mockk
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.mock
 import kotlinx.coroutines.test.TestScope
 import org.junit.Rule
 import org.junit.Test
 
 @OptIn(ExperimentalTestApi::class)
 class MainScreenTest {
-
 	@get:Rule
 	val composeTestRule = createComposeRule()
 
-	private val mockRecorder: Recorder = mockk(relaxed = true)
+	private val mockRecorder: Recorder = mock()
 	private val testScope: TestScope = TestScope()
-	private val mockHomeboxAiAgent: HomeboxAiAgent = mockk(relaxed = true) {
+	private val mockHomeboxAiAgent: HomeboxAiAgent = mock {
 		// Mock the events flow to return empty list
 		every { events } returns kotlinx.coroutines.flow.MutableStateFlow(kotlinx.collections.immutable.persistentListOf())
 	}
@@ -37,7 +37,7 @@ class MainScreenTest {
 
 		// Wait for the UI to stabilize and check record button exists
 		composeTestRule.waitUntilAtLeastOneExists(
-			hasText("Start recording", substring = false)
+			hasText("Start recording", substring = false),
 		)
 
 		// Assert - Record button is visible

@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 class MainViewModel(
 	private val recorder: Recorder,
 	private val coroutineScope: CoroutineScope,
-	val homeboxAiAgent: HomeboxAiAgent = HomeboxAiAgent()
+	val homeboxAiAgent: HomeboxAiAgent = HomeboxAiAgentImpl(),
 ) {
 	var isRecording by mutableStateOf(false)
 		private set

@@ -45,9 +45,7 @@ fun App() {
 }
 
 @Composable
-fun MainScreen(
-	viewModel: MainViewModel,
-) {
+fun MainScreen(viewModel: MainViewModel) {
 	val isRecording = viewModel.isRecording
 	val isTranscribing = viewModel.isTranscribing
 	val transcription = viewModel.transcription
@@ -79,22 +77,22 @@ fun MainScreen(
 		Box(
 			modifier = Modifier
 				.weight(1f)
-				.fillMaxWidth()
+				.fillMaxWidth(),
 		) {
 			LazyColumn(
 				modifier = Modifier.fillMaxSize(),
 				state = eventListState,
 				verticalArrangement = Arrangement.spacedBy(8.dp),
-				contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)
+				contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
 			) {
 				items(events) { event ->
 					Card(
-						modifier = Modifier.fillMaxWidth()
+						modifier = Modifier.fillMaxWidth(),
 					) {
 						Text(
 							text = event.humanDescription,
 							modifier = Modifier.padding(16.dp),
-							style = MaterialTheme.typography.bodyMedium
+							style = MaterialTheme.typography.bodyMedium,
 						)
 					}
 				}
@@ -106,7 +104,7 @@ fun MainScreen(
 				.fillMaxWidth()
 				.padding(16.dp),
 			horizontalAlignment = Alignment.CenterHorizontally,
-			verticalArrangement = Arrangement.spacedBy(8.dp)
+			verticalArrangement = Arrangement.spacedBy(8.dp),
 		) {
 			Button(
 				onClick = viewModel::onRecordButtonClick,

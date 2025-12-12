@@ -14,13 +14,12 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.uuid.ExperimentalUuidApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalUuidApi::class)
-class HomeboxClientTest {
+class HomeboxClientImplTest {
 	@Test
 	fun `listLocations requests and parses response`() =
 		runTest {
@@ -43,7 +42,7 @@ class HomeboxClientTest {
 				}
 			}
 
-			val client = HomeboxClient(httpClient, "https://example.test", "token")
+			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
 
 			val locations = client.listLocations()
 
@@ -69,7 +68,7 @@ class HomeboxClientTest {
 			}
 
 			val httpClient = HttpClient(engine)
-			val client = HomeboxClient(httpClient, "https://example.test", "token")
+			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
 
 			client.listLocations(filterChildren = true)
 
@@ -91,7 +90,7 @@ class HomeboxClientTest {
 			}
 
 			val httpClient = HttpClient(engine)
-			val client = HomeboxClient(httpClient, "https://example.test", "token")
+			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
 
 			client.getLocationTree(withItems = true)
 
@@ -120,7 +119,7 @@ class HomeboxClientTest {
 				install(ContentNegotiation) { json() }
 			}
 
-			val client = HomeboxClient(httpClient, "https://example.test", "token")
+			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
 
 			val page = client.listItems(pageSize = 100)
 
@@ -148,7 +147,7 @@ class HomeboxClientTest {
 			}
 
 			val httpClient = HttpClient(engine)
-			val client = HomeboxClient(httpClient, "https://example.test", "token")
+			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
 
 			val locationId1 = TestConstants.TEST_ID_1
 			val locationId2 = TestConstants.TEST_ID_2
@@ -176,7 +175,7 @@ class HomeboxClientTest {
 			}
 
 			val httpClient = HttpClient(engine)
-			val client = HomeboxClient(httpClient, "https://example.test", "token")
+			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
 
 			val location = client.getLocation(locationId)
 
@@ -185,17 +184,4 @@ class HomeboxClientTest {
 			assertEquals("Shelf A", location.name)
 			assertEquals(parentId, location.parent?.id)
 		}
-
-	@Test
-	fun `constructor rejects blank configuration`() {
-		val httpClient = HttpClient(MockEngine { error("unused") })
-
-		assertFailsWith<IllegalArgumentException> {
-			HomeboxClient(httpClient, "", "token")
-		}
-
-		assertFailsWith<IllegalArgumentException> {
-			HomeboxClient(httpClient, "https://example.test", " ")
-		}
-	}
 }

@@ -1,16 +1,14 @@
 package de.findusl.homebox.client
 
-import io.ktor.client.HttpClient
+import dev.mokkery.mock
 import kotlin.test.Test
-import kotlin.uuid.ExperimentalUuidApi
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.MutableStateFlow
 
-@OptIn(ExperimentalUuidApi::class)
 class AiToolsTest {
-
 	@Test
 	fun foo() {
-		val test = AiTools(MutableStateFlow(null), HomeboxClient(HttpClient(), "http://localhost:8080", "token"), MutableStateFlow(kotlinx.collections.immutable.persistentListOf()))
+		val test = AiTools(MutableStateFlow(null), mock(), MutableStateFlow(persistentListOf()))
 		println(test.createLocationTool.descriptor)
 	}
 }
