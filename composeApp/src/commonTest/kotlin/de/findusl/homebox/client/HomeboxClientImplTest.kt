@@ -2,9 +2,11 @@ package de.findusl.homebox.client
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestData
+import io.ktor.client.request.HttpResponseData
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -20,34 +22,68 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalUuidApi::class)
 class HomeboxClientImplTest {
+	private fun MockRequestHandleScope.loginResponse(token: String = "Bearer token") =
+		respond(
+			content = ByteReadChannel(
+				"""{"token":"$token","expiresAt":"2023-12-24T12:00:00Z","attachmentToken":"attachment"}""",
+			),
+			status = HttpStatusCode.OK,
+			headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+		)
+
+	private fun createHttpClient(engine: MockEngine) =
+		HttpClient(engine) {
+			install(ContentNegotiation) { json() }
+		}
+
+	private fun mockEngineWithLogin(
+		capturedRequests: MutableList<HttpRequestData>,
+		token: String = "Bearer token",
+		onAuthorizedRequest: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
+	) = MockEngine { request ->
+		capturedRequests += request
+		when (request.url.encodedPath) {
+			"/api/v1/users/login" -> loginResponse(token)
+			else -> onAuthorizedRequest(request)
+		}
+	}
+
 	@Test
 	fun `listLocations requests and parses response`() =
 		runTest {
-			var capturedRequest: HttpRequestData? = null
+			val capturedRequests = mutableListOf<HttpRequestData>()
 			val locationId = TestConstants.TEST_ID_1
-			val engine = MockEngine { request ->
-				capturedRequest = request
-				respond(
-					content = ByteReadChannel(
-						"""[{"id":"$locationId","name":"Kitchen","itemCount":4}]""",
-					),
-					status = HttpStatusCode.OK,
-					headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
-				)
-			}
-
-			val httpClient = HttpClient(engine) {
-				install(ContentNegotiation) {
-					json()
+			val engine =
+				mockEngineWithLogin(capturedRequests) { _ ->
+					respond(
+						content = ByteReadChannel(
+							"""[{"id":"$locationId","name":"Kitchen","itemCount":4}]""",
+						),
+						status = HttpStatusCode.OK,
+						headers = headersOf(
+							HttpHeaders.ContentType,
+							ContentType.Application.Json.toString(),
+						),
+					)
 				}
-			}
 
-			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
+			val client =
+				HomeboxClientImpl(
+					createHttpClient(engine),
+					"https://example.test",
+					"username",
+					"password",
+				)
 
 			val locations = client.listLocations()
 
-			val request = requireNotNull(capturedRequest)
-			assertEquals("/v1/locations", request.url.encodedPath)
+			assertEquals(
+				"/api/v1/users/login",
+				requireNotNull(capturedRequests.firstOrNull()).url.encodedPath,
+			)
+
+			val request = requireNotNull(capturedRequests.getOrNull(1))
+			assertEquals("/api/v1/locations", request.url.encodedPath)
 			assertEquals("Bearer token", request.headers[HttpHeaders.Authorization])
 			assertEquals(1, locations.size)
 			assertEquals("Kitchen", locations.first().name)
@@ -58,17 +94,26 @@ class HomeboxClientImplTest {
 	fun `listLocations forwards filter parameter`() =
 		runTest {
 			var capturedUrl: Url? = null
-			val engine = MockEngine { request ->
-				capturedUrl = request.url
-				respond(
-					content = ByteReadChannel("[]"),
-					status = HttpStatusCode.OK,
-					headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
-				)
-			}
+			val engine =
+				mockEngineWithLogin(mutableListOf()) { request ->
+					capturedUrl = request.url
+					respond(
+						content = ByteReadChannel("[]"),
+						status = HttpStatusCode.OK,
+						headers = headersOf(
+							HttpHeaders.ContentType,
+							ContentType.Application.Json.toString(),
+						),
+					)
+				}
 
-			val httpClient = HttpClient(engine)
-			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
+			val client =
+				HomeboxClientImpl(
+					createHttpClient(engine),
+					"https://example.test",
+					"username",
+					"password",
+				)
 
 			client.listLocations(filterChildren = true)
 
@@ -80,17 +125,26 @@ class HomeboxClientImplTest {
 	fun `getLocationTree forwards withItems parameter`() =
 		runTest {
 			var capturedUrl: Url? = null
-			val engine = MockEngine { request ->
-				capturedUrl = request.url
-				respond(
-					content = ByteReadChannel("[]"),
-					status = HttpStatusCode.OK,
-					headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
-				)
-			}
+			val engine =
+				mockEngineWithLogin(mutableListOf()) { request ->
+					capturedUrl = request.url
+					respond(
+						content = ByteReadChannel("[]"),
+						status = HttpStatusCode.OK,
+						headers = headersOf(
+							HttpHeaders.ContentType,
+							ContentType.Application.Json.toString(),
+						),
+					)
+				}
 
-			val httpClient = HttpClient(engine)
-			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
+			val client =
+				HomeboxClientImpl(
+					createHttpClient(engine),
+					"https://example.test",
+					"username",
+					"password",
+				)
 
 			client.getLocationTree(withItems = true)
 
@@ -104,27 +158,33 @@ class HomeboxClientImplTest {
 			var capturedRequest: HttpRequestData? = null
 			val itemId = TestConstants.TEST_ID_1
 			val locationId = TestConstants.TEST_ID_2
-			val engine = MockEngine { request ->
-				capturedRequest = request
-				respond(
-					content = ByteReadChannel(
-"""{"items":[{"id":"$itemId","name":"Hammer","quantity":2,"description":"Steel","location":{"id":"$locationId","name":"Shelf A"}}],"page":1,"pageSize":100,"total":1}""",
-					),
-					status = HttpStatusCode.OK,
-					headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+			val engine =
+				mockEngineWithLogin(mutableListOf()) { request ->
+					capturedRequest = request
+					respond(
+						content = ByteReadChannel(
+							"""{"items":[{"id":"$itemId","name":"Hammer","quantity":2,"description":"Steel","location":{"id":"$locationId","name":"Shelf A"}}],"page":1,"pageSize":100,"total":1}""",
+						),
+						status = HttpStatusCode.OK,
+						headers = headersOf(
+							HttpHeaders.ContentType,
+							ContentType.Application.Json.toString(),
+						),
+					)
+				}
+
+			val client =
+				HomeboxClientImpl(
+					createHttpClient(engine),
+					"https://example.test",
+					"username",
+					"password",
 				)
-			}
-
-			val httpClient = HttpClient(engine) {
-				install(ContentNegotiation) { json() }
-			}
-
-			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
 
 			val page = client.listItems(pageSize = 100)
 
 			val request = requireNotNull(capturedRequest)
-			assertEquals("/v1/items", request.url.encodedPath)
+			assertEquals("/api/v1/items", request.url.encodedPath)
 			assertEquals("100", request.url.parameters["pageSize"])
 			assertEquals("Bearer token", request.headers[HttpHeaders.Authorization])
 			assertEquals(1, page.items.size)
@@ -137,17 +197,28 @@ class HomeboxClientImplTest {
 	fun `listItems forwards location filters`() =
 		runTest {
 			var capturedUrl: Url? = null
-			val engine = MockEngine { request ->
-				capturedUrl = request.url
-				respond(
-					content = ByteReadChannel("""{"items":[],"page":1,"pageSize":100,"total":0}"""),
-					status = HttpStatusCode.OK,
-					headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
-				)
-			}
+			val engine =
+				mockEngineWithLogin(mutableListOf()) { request ->
+					capturedUrl = request.url
+					respond(
+						content = ByteReadChannel(
+							"""{"items":[],"page":1,"pageSize":100,"total":0}""",
+						),
+						status = HttpStatusCode.OK,
+						headers = headersOf(
+							HttpHeaders.ContentType,
+							ContentType.Application.Json.toString(),
+						),
+					)
+				}
 
-			val httpClient = HttpClient(engine)
-			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
+			val client =
+				HomeboxClientImpl(
+					createHttpClient(engine),
+					"https://example.test",
+					"username",
+					"password",
+				)
 
 			val locationId1 = TestConstants.TEST_ID_1
 			val locationId2 = TestConstants.TEST_ID_2
@@ -163,24 +234,33 @@ class HomeboxClientImplTest {
 			var capturedRequest: HttpRequestData? = null
 			val locationId = TestConstants.TEST_ID_1
 			val parentId = TestConstants.TEST_ID_2
-			val engine = MockEngine { request ->
-				capturedRequest = request
-				respond(
-					content = ByteReadChannel(
-						"""{"id":"$locationId","name":"Shelf A","parent":{"id":"$parentId","name":"Home"}}""",
-					),
-					status = HttpStatusCode.OK,
-					headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
-				)
-			}
+			val engine =
+				mockEngineWithLogin(mutableListOf()) { request ->
+					capturedRequest = request
+					respond(
+						content = ByteReadChannel(
+							"""{"id":"$locationId","name":"Shelf A","parent":{"id":"$parentId","name":"Home"}}""",
+						),
+						status = HttpStatusCode.OK,
+						headers = headersOf(
+							HttpHeaders.ContentType,
+							ContentType.Application.Json.toString(),
+						),
+					)
+				}
 
-			val httpClient = HttpClient(engine)
-			val client = HomeboxClientImpl(httpClient, "https://example.test", "username", "password")
+			val client =
+				HomeboxClientImpl(
+					createHttpClient(engine),
+					"https://example.test",
+					"username",
+					"password",
+				)
 
 			val location = client.getLocation(locationId)
 
 			val request = requireNotNull(capturedRequest)
-			assertEquals("/v1/locations/$locationId", request.url.encodedPath)
+			assertEquals("/api/v1/locations/$locationId", request.url.encodedPath)
 			assertEquals("Shelf A", location.name)
 			assertEquals(parentId, location.parent?.id)
 		}
